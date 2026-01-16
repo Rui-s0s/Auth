@@ -1,8 +1,11 @@
 import express from "express"
-import https from "https"
-import path from "path"
-import fs from "fs"
+import routes from ""
+
 
 const app = express()
 
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(express.static('public'));
 
+app.use('/', routes)
