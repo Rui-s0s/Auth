@@ -1,2 +1,6 @@
 muci.txt
 node_modules
+
+# Added by cargo
+
+/target
