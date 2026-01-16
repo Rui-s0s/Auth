@@ -13,7 +13,7 @@ use tower_http::services::ServeDir;
 async fn main() {
     let app = Router::new()
     .merge(routes_hello())
-    .fallback_service(routes_static());
+    .fallback_service(ServeDir::new("./"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     println!("->> LISTENING on {addr}\n");
