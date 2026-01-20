@@ -1,4 +1,4 @@
-import * as Post from '../models/postsModels.js'
+import * as Post from '../models/postsModel.js'
 
 
 export async function showPosts(req, res) {

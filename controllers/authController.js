@@ -1,8 +1,10 @@
-import * as Auth from '../models/authModels.js'
+import * as Auth from '../models/authModel'
 
 export async function login(req, res) {
   try {
     // Auth.something
+    // search for user if it exists and credentials
+    const sessionId = crypto.randomUUID
   } catch (err) {
     console.error(err)
     res.sendStatus(500)
