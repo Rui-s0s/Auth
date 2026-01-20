@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../config/db"); // Whaet
 const bcrypt = require("bcrypt");
 
 const SALT_ROUNDS = 12;
@@ -10,6 +10,7 @@ class User {
   #email;
   #passwordHash;
   #createdAt;
+  // moderador o no
 
   constructor(row) {
     this.#id = row.id;
