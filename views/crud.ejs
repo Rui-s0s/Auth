@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>CRUD Posts</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    li { margin-bottom: 1rem; }
+    button { margin-left: 0.5rem; }
+    input { margin-right: 0.5rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Posts</h1>
+
+  <!-- CREATE NEW POST -->
+  <input type="text" id="newPost" placeholder="Write something..." />
+  <button onclick="createPost()">Create</button>
+
+  <ul id="posts">
+    <% posts.forEach(p => { %>
+      <li data-id="<%= p.id %>" data-likes="<%= p.likes %>">
+        <span class="post-text"><%= p.post %></span>
+        <span class="likes">Likes: <%= p.likes %></span>
+        <button onclick="likePost(<%= p.id %>, this)">Like</button>
+        <button onclick="editPost(<%= p.id %>, this)">Edit</button>
+        <button onclick="deletePost(<%= p.id %>, this)">Delete</button>
+      </li>
+    <% }) %>
+  </ul>
+
+<script src="js/main.js"></script>
+
+</body>
+</html>
