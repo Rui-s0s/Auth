@@ -1,6 +1,24 @@
 import User from '../models/usersModel.js';
 import crypto from "crypto"
 
+export async function showLogin(req, res) {
+  try {
+      res.render('login')
+    } catch (err) {
+      console.error(err)
+      res.sendStatus(500)
+    }
+}
+
+export async function showRegister(req, res) {
+  try {
+    res.render('register')
+  } catch (err) {
+    console.error(err)
+    res.sendStatus(500)
+  }
+}
+
 export async function login(req, res) {
   const { username, password } = req.body;
 

@@ -5,6 +5,8 @@ const router = express.Router()
 
 // Render page
 router.get('/', postsController.showPosts)
+router.get('/login', usersController.showLogin)
+router.get('/register', usersController.showRegister)
 
 // API endpoints
 router.post('/posts', postsController.createPost)

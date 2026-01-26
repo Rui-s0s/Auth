@@ -2,3 +2,5 @@ muci.txt
 node_modules
 .env
 .env.*
+
+changes.js
