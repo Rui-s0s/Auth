@@ -1,6 +1,13 @@
-import * as Auth from '../models/authModel'
+import User from "./User.js";
+import crypto from "crypto"
 
 export async function login(req, res) {
+  const { username, password } = req.body;
+
+
+  if (!username || !password)
+  return res.status(400).json({ error: "Username and password required" });
+
   try {
     // Auth.something
     // search for user if it exists and credentials

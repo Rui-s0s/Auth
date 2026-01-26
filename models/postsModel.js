@@ -1,9 +1,5 @@
-import { Pool } from 'pg';
-import dotenv from "dotenv";
+import pool from '/connection.js';
 
-dotenv.config();
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL})
 // create delete update etc didnt have Model inside them
 export async function getAll() { 
   const { rows } = await pool.query('SELECT * FROM posts ORDER BY likes DESC')

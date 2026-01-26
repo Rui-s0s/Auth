@@ -1,6 +1,6 @@
 import express from 'express'
 import * as postsController from '../controllers/postsController.js'
-import * as authController from '../controllers/authController.js'
+import * as usersController from '../controllers/usersController.js'
 const router = express.Router()
 
 // Render page
@@ -10,7 +10,7 @@ router.get('/', postsController.showPosts)
 router.post('/posts', postsController.createPost)
 router.put('/posts/:id', postsController.editPost)
 router.delete('/posts/:id', postsController.deletePost)
-router.post('/login', authController.login)
-router.post('/register', authController.register)
+router.post('/login', usersController.login)
+router.post('/register', usersController.register)
 
 export default router

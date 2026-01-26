@@ -1,16 +1,16 @@
-const db = require("../config/db"); // Whaet
-const bcrypt = require("bcrypt");
+import bcrypt from "bcryptjs";
+import pool from "/connection.js"
 
 const SALT_ROUNDS = 12;
 
-class User {
+export default class User {
   // 🔒 private fields (true privacy, not accessible outside the class)
   #id;
   #username;
   #email;
   #passwordHash;
   #createdAt;
-  // moderador o no
+  #isMod;
 
   constructor(row) {
     this.#id = row.id;
@@ -18,26 +18,17 @@ class User {
     this.#email = row.email;
     this.#passwordHash = row.password_hash;
     this.#createdAt = row.created_at;
+    this.#isMod = row.is_mod || false;
 
     // ❄️ prevents adding/modifying public properties
     Object.freeze(this);
   }
 
-  get id() {
-    return this.#id;
-  }
-
-  get username() {
-    return this.#username;
-  }
-
-  get email() {
-    return this.#email;
-  }
-
-  get createdAt() {
-    return this.#createdAt;
-  }
+  get id() { return this.#id; }
+  get username() { return this.#username; }
+  get email() { return this.#email; }
+  get createdAt() { return this.#createdAt; }
+  get isMod() { return this.#isMod; } 
 
   /* ----------------- Auth helpers ----------------- */
   async verifyPassword(plainPassword) {
@@ -62,7 +53,7 @@ class User {
   static async create({ username, email, password }) {
     const passwordHash = await this.hashPassword(password);
 
-    const { rows } = await db.query(
+    const { rows } = await pool.query(
       `
       INSERT INTO users (username, email, password_hash)
       VALUES ($1, $2, $3)
@@ -74,8 +65,33 @@ class User {
     return new User(rows[0]);
   }
 
+  static async createAdmin({ username, email, password }) {
+
+    const passwordHash = await this.hashPassword(password);
+    const { rows } = await pool.query(
+      `
+      INSERT INTO users (username, email, password_hash, is_mod)
+      VALUES ($1, $2, $3, true)
+      RETURNING *
+      `,
+      [username, email, passwordHash]
+      );
+
+      return new User(rows[0]);
+    }
+
+
+    static async makeMod(id) {
+      // only for internal/admin scripts
+      await pool.query(
+        "UPDATE users SET is_mod = true WHERE id = $1",
+        [id]
+      );
+    }
+  
+
   static async findById(id) {
-    const { rows } = await db.query(
+    const { rows } = await pool.query(
       "SELECT * FROM users WHERE id = $1",
       [id]
     );
@@ -84,7 +100,7 @@ class User {
   }
 
   static async findByEmail(email) {
-    const { rows } = await db.query(
+    const { rows } = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
@@ -93,8 +109,6 @@ class User {
   }
 
   static async deleteById(id) {
-    await db.query("DELETE FROM users WHERE id = $1", [id]);
+    await pool.query("DELETE FROM users WHERE id = $1", [id]);
   }
 }
-
-module.exports = User;
