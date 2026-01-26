@@ -1,4 +1,4 @@
-import User from "./User.js";
+import User from '../models/usersModel.js';
 import crypto from "crypto"
 
 export async function login(req, res) {

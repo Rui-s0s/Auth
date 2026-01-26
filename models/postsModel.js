@@ -1,4 +1,4 @@
-import pool from '/connection.js';
+import pool from './connection.js';
 
 // create delete update etc didnt have Model inside them
 export async function getAll() { 

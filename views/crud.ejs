@@ -22,15 +22,13 @@
     <% posts.forEach(p => { %>
       <li data-id="<%= p.id %>" data-likes="<%= p.likes %>">
         <span class="post-text"><%= p.post %></span>
-        <span class="likes">Likes: <%= p.likes %></span>
-        <button onclick="likePost(<%= p.id %>, this)">Like</button>
         <button onclick="editPost(<%= p.id %>, this)">Edit</button>
         <button onclick="deletePost(<%= p.id %>, this)">Delete</button>
       </li>
     <% }) %>
   </ul>
 
-<script src="js/crud.js"></script>
+<script src="js/posts.js"></script>
 
 </body>
 </html>

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import pool from "/connection.js"
+import pool from "./connection.js"
 
 const SALT_ROUNDS = 12;
 

@@ -11,46 +11,18 @@
     <p style="color: red;"><%= error %></p>
   <% } %>
 
-  <form method="POST" action="/auth/register">
-    <div>
-      <label for="username">Username</label>
-      <input
-        type="text"
-        id="username"
-        name="username"
-        required
-        autocomplete="username"
-      />
-    </div>
-
-    <div>
-      <label for="email">Email</label>
-      <input
-        type="email"
-        id="email"
-        name="email"
-        required
-        autocomplete="email"
-      />
-    </div>
-
-    <div>
-      <label for="password">Password</label>
-      <input
-        type="password"
-        id="password"
-        name="password"
-        required
-        autocomplete="new-password"
-      />
-    </div>
-
-    <button type="submit">Create Account</button>
-  </form>
+  <form id="registerForm">
+<input type="text" id="username" placeholder="Username" required />
+<input type="email" id="email" placeholder="Email" required />
+<input type="password" id="password" placeholder="Password" required />
+<button type="submit">Register</button>
+</form>
 
   <p>
     Already have an account?
     <a href="/login">Login</a>
   </p>
+
+  <script src="register.js"></script>
 </body>
 </html>
