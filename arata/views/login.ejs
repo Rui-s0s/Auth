@@ -1,0 +1,28 @@
+<h2>Login</h2>
+<div id="error" style="color:red"></div>
+
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+
+<button onclick="doLogin('session')">Login (Persistent Session)</button>
+<button onclick="doLogin('jwt')">Login (Stateless JWT)</button>
+
+<script>
+  async function doLogin(mode) {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'CSRF-Token': '<%= csrfToken %>' 
+      },
+      body: JSON.stringify({ 
+        username: document.getElementById('username').value, 
+        password: document.getElementById('password').value,
+        mode 
+      })
+    });
+    
+    if (res.ok) window.location.href = '/protected';
+    else alert('Login failed');
+  }
+</script>

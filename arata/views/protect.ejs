@@ -1,0 +1,8 @@
+<h1>Protected Area</h1>
+<p>Hello, <%= user.username %>!</p>
+<p>Auth Method: <strong><%= authMethod %></strong></p>
+
+<form action="/logout" method="POST">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <button type="submit">Logout</button>
+</form>
