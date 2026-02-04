@@ -1,72 +1,98 @@
+require('dotenv').config();
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
-const csrf = require('csurf');
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const path = require('path');
 const cookieParser = require('cookie-parser');
-const helmet = require('helmet');
 
 
 const app = express();
+const PORT = 3000;
 
-// Parsing
+// Fake user database
+// const users = [
+//   { id: 1, username: 'alice', passwordHash: bcrypt.hashSync('pass123', 10) },
+//   { id: 2, username: 'bob', passwordHash: bcrypt.hashSync('secret', 10) },
+//   { id: 3, username: '<script>alert(1)</script>', passwordHash: bcrypt.hashSync('quilo', 10) }
+// ];
 
+const users = [
+  // 1. Basic Script Tag (The Classic)
+  { id: 1, username: '<script>alert("Classic XSS")</script>', passwordHash: bcrypt.hashSync('...', 10) },
+
+  // 2. Image Event Handler (Sneaks past simple <script> filters)
+  { id: 2, username: '<img src=x onerror=alert("EventXSS")>', passwordHash: bcrypt.hashSync('...', 10) },
+
+  // 3. Attribute Breakout (Tests if you're escaping quotes in HTML attributes)
+  // Target: <input value="{{username}}"> 
+  { id: 3, username: '"><script>alert("AttributeBreak")</script>', passwordHash: bcrypt.hashSync('...', 10) },
+
+  // 4. Anchor Tag/Pseudo-protocol (Tests "href" or "src" links)
+  // Target: <a href="{{username}}">Profile</a>
+  { id: 4, username: 'javascript:alert("LinkXSS")', passwordHash: bcrypt.hashSync('...', 10) },
+
+  // 5. SVG Payload (Often overlooked by sanitizers)
+  { id: 5, username: '<svg onload=alert("SVG_XSS")>', passwordHash: bcrypt.hashSync('...', 10) },
+
+  // 6. Style-based Injection (Targeting CSS contexts)
+  { id: 6, username: '<div style="width: expression(alert(\'IE_XSS\'));">', passwordHash: bcrypt.hashSync('...', 10) }
+];
+
+
+// PostgreSQL pool (needed if you want session storage in DB)
+const pool = new Pool({
+  user: 'postgres',
+  host: 'localhost',
+  database: 'auth',
+  password: 'penguin',
+  port: 5432
+});
+
+// Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public'))); // serve /public
 app.use(cookieParser());
 
-// 1. Session Config
+// CSP header
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self';"
+  );
+  next();
+});
 
+// Session middleware
 app.use(session({
-  store: new pgSession({ pool: yourPostgresPool, tableName: 'session' }),
-  secret: 'super_secret_session',
+  store: new pgSession({ pool, tableName: 'session' }),
+  secret: process.env.SESSION_SECRET || 'keyboardcat',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    httpOnly: true,
-    secure: true,        // HTTPS only
-    sameSite: 'lax'      // or 'strict'
-  } // 30 days
+  cookie: { maxAge: 1000 * 60 * 60 } // 1 hour
 }));
 
-// 2. CSRF Middleware and XSS security, CSP
+// View engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-const csrfProtection = csrf({ cookie: true });
-app.use(csrfProtection);
-app.use(helmet());
-
-// 3. Auth Middleware (Checks both pockets)
-
-const authorize = (req, res, next) => {
-  if (req.session.userId) {
-    req.user = { id: req.session.userId, username: req.session.username };
-    res.locals.authMethod = 'Postgres Session';
-    return next();
-  }
-  
-  const token = req.cookies.accessToken;
-  if (token) {
-    try {
-      req.user = jwt.verify(token, 'jwt_secret');
-      res.locals.authMethod = 'Stateless JWT';
-      return next();
-    } catch (e) { res.clearCookie('accessToken'); }
-  }
-  res.redirect('/login');
-};
-
-// 4. Routes
-
-app.get('/login', (req, res) => res.render('login', { csrfToken: req.csrfToken() }));
-
-app.get('/protected', authorize, (req, res) => {
-  res.render('protected', { user: req.user, csrfToken: req.csrfToken() });
+// Routes
+app.get('/', (req, res) => {
+  res.render('login');
 });
 
 app.post('/login', async (req, res) => {
-  const { username, mode } = req.body;
-  const user = { id: 1, username }; // example
+  const { username, password, mode } = req.body;
+  console.log(username)
+
+  const user = users.find(u => u.username === username);
+  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
   if (mode === 'session') {
     req.session.regenerate(err => {
@@ -74,51 +100,80 @@ app.post('/login', async (req, res) => {
 
       req.session.userId = user.id;
       req.session.username = user.username;
-
       res.json({ success: true, method: 'session' });
     });
   } else {
     const token = jwt.sign(
       { uid: user.id },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'jwtsecret',
       { expiresIn: '15m' }
     );
-
     res.cookie('accessToken', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'lax'
+      secure: false, 
+      sameSite: 'strict'                          // Maybe strict
     });
-
     res.json({ success: true, method: 'jwt' });
   }
 });
 
-
 app.post('/logout', (req, res) => {
   res.clearCookie('accessToken');
-  req.session.destroy(() => res.redirect('/login'));
+
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).send('Logout failed');
+    }
+
+    res.clearCookie('connect.sid'); // session cookie (important)
+    res.redirect('/login');
+  });
 });
 
-// SOMETHING LIKE THIS TO CHECK ADMIN OR NOT
 
-const requireAdmin = async (req, res, next) => {
-  const userId = req.user.id; // set earlier by your authorize middleware
+function requireAuth(req, res, next) {
 
-  const result = await db.query(
-    'SELECT role FROM users WHERE id = $1',
-    [userId]
-  );
+  console.log(req.cookies)
+  console.log(req.cookie)
 
-  if (!result.rows.length) return res.sendStatus(403);
+  // 1️⃣ Check session
+  if (req.session && req.session.userId) {
+    req.userId = req.session.userId;
+    req.authMethod = 'session';
+    return next();
+  }
 
-  const role = result.rows[0].role;
+  // 2️⃣ Check JWT
+  const token = req.cookies?.accessToken;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'jwtsecret');
+      req.userId = payload.uid;
+      req.authMethod = 'jwt';
+      return next();
+    } catch (err) {
+      // Invalid or expired token → continue to fail
+    }
+  }
 
-  if (role !== 'admin') return res.sendStatus(403);
+  // 3️⃣ Not authenticated
+  return res.status(401).json({ error: 'Unauthorized: login required' });
+}
 
-  next();
-};
 
-app.listen(3000);
 
-// USE REDIS WITH DOCKER
+app.get('/dashboard', requireAuth, (req, res) => {
+  const user = users.find(u => u.id === req.userId);
+  res.render('dashboard', {
+    username: user?.username || 'Unknown',
+    method: req.authMethod
+  });
+});
+
+
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+

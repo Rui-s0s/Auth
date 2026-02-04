@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+</head>
+<body>
+  <h1>Welcome, <%= username %>!</h1>
+  <p>Logged in using <%= method %>.</p>
+  <form action="/logout" method="POST">
+    <button type="submit">Logout</button>
+  </form>
+  <form action="/logout" method="POST">
+  <button type="submit" id="logoutBtn">Logout</button>
+</form>
+</body>
+</html>
