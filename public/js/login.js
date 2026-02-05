@@ -1,21 +1,39 @@
-document.getElementById("loginForm").addEventListener("submit", async e => {
-  e.preventDefault();
+async function doLogin(mode) {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
 
-  const res = await fetch("/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: username.value,
-      password: password.value
-    })
-  });
+  try {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ username, password, mode })
+    });
 
-  const data = await res.json();
+    let data = {};
+    const contentType = res.headers.get('content-type');
 
-  if (data.token) {
-    localStorage.setItem("token", data.token);
-    window.location.href = "/dashboard.html";
-  } else {
-    alert(data.error);
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      data.error = await res.text();
+    }
+
+    if (res.status === 429) {
+      alert(data.error || 'Too many login attempts. Try again later.');
+      return;
+    }
+
+    if (!res.ok) {
+      alert(data.error || 'Invalid username or password');
+      return;
+    }
+
+    alert(`Logged in using ${data.method}`);
+    window.location.href = '/dashboard';
+
+  } catch (err) {
+    console.error(err);
+    alert('Network error. Please try again.');
   }
-});
+}

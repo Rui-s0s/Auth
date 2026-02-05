@@ -7,17 +7,25 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-
+const helmet = require('helmet')
+const csrf = require('csurf');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 3000;
 
-// Fake user database
-// const users = [
-//   { id: 1, username: 'alice', passwordHash: bcrypt.hashSync('pass123', 10) },
-//   { id: 2, username: 'bob', passwordHash: bcrypt.hashSync('secret', 10) },
-//   { id: 3, username: '<script>alert(1)</script>', passwordHash: bcrypt.hashSync('quilo', 10) }
-// ];
+
+const csrfProtection = csrf({
+  cookie: true, // stores secret in cookie
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,                  // 5 attempts
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts. Try again later.',
+});
 
 const users = [
   // 1. Basic Script Tag (The Classic)
@@ -65,6 +73,7 @@ app.use((req, res, next) => {
   );
   next();
 });
+app.use(helmet())
 
 // Session middleware
 app.use(session({
@@ -84,7 +93,7 @@ app.get('/', (req, res) => {
   res.render('login');
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   const { username, password, mode } = req.body;
   console.log(username)
 
@@ -117,7 +126,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.post('/logout', (req, res) => {
+app.post('/logout', csrfProtection, (req, res) => {
   res.clearCookie('accessToken');
 
   req.session.destroy(err => {
@@ -126,7 +135,7 @@ app.post('/logout', (req, res) => {
     }
 
     res.clearCookie('connect.sid'); // session cookie (important)
-    res.redirect('/login');
+    res.redirect('/');
   });
 });
 
@@ -162,11 +171,12 @@ function requireAuth(req, res, next) {
 
 
 
-app.get('/dashboard', requireAuth, (req, res) => {
+app.get('/dashboard', requireAuth, csrfProtection,  (req, res) => {
   const user = users.find(u => u.id === req.userId);
   res.render('dashboard', {
     username: user?.username || 'Unknown',
-    method: req.authMethod
+    method: req.authMethod,
+    csrfToken: req.csrfToken() 
   });
 });
 

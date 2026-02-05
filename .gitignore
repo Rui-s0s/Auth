@@ -1,6 +1,3 @@
-muci.txt
 node_modules
+test-results
 .env
-.env.*
-
-changes.js
