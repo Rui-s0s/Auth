@@ -15,21 +15,16 @@ const app = express();
 const PORT = 3000;
 
 
-// const csrfProtection = csrf({
-//   cookie: true, // stores secret in cookie
-// });
-
 const csrfProtection = csrf({
   cookie: {
-    httpOnly: true, // JS cannot read this cookie
+    httpOnly: true,
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production'
   }
 });
 
-
 const loginLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 15 minutes
+  windowMs: 1 * 60 * 1000, // 1 minute
   max: 5,                  // 5 attempts
   standardHeaders: true,
   legacyHeaders: false,
@@ -52,7 +47,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'auth',
-  password: 'penguin',
+  password: 'addressme',
   port: 5432
 });
 
@@ -61,16 +56,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'))); // serve /public
 app.use(cookieParser());
-
-// CSP header
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self';"
-  );
-  next();
-});
-app.use(helmet())
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        styleSrc: ["'self'"],
+      },
+    },
+  })
+);
 
 // Session middleware
 app.use(session({
@@ -172,7 +169,7 @@ app.post('/logout', csrfProtection, (req, res) => {
   });
 });
 
-
+// MIDDLEWARE THAT VERIFIES BOTH ROLE AND AUTH
 function requireRole(allowedRoles = []) {
   return (req, res, next) => {
     let user;
@@ -213,9 +210,8 @@ function requireRole(allowedRoles = []) {
 
 
 app.get('/dashboard', requireRole(['user', 'admin']), csrfProtection, (req, res) => {
-  // req.user is set by your requireRole middleware
   res.render('dashboard', {
-    user: req.user,       // full user object with username, role, etc.
+    user: req.user,
     csrfToken: req.csrfToken()
   });
 });
