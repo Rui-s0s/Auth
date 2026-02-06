@@ -37,3 +37,7 @@ async function doLogin(mode) {
     alert('Network error. Please try again.');
   }
 }
+
+// Add event listeners to buttons
+document.getElementById('loginSession').addEventListener('click', () => doLogin('session'));
+document.getElementById('loginJwt').addEventListener('click', () => doLogin('jwt'));

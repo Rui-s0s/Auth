@@ -15,9 +15,18 @@ const app = express();
 const PORT = 3000;
 
 
+// const csrfProtection = csrf({
+//   cookie: true, // stores secret in cookie
+// });
+
 const csrfProtection = csrf({
-  cookie: true, // stores secret in cookie
+  cookie: {
+    httpOnly: true, // JS cannot read this cookie
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production'
+  }
 });
+
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -28,26 +37,14 @@ const loginLimiter = rateLimit({
 });
 
 const users = [
-  // 1. Basic Script Tag (The Classic)
   { id: 1, username: '<script>alert("Classic XSS")</script>', passwordHash: bcrypt.hashSync('...', 10) },
-
-  // 2. Image Event Handler (Sneaks past simple <script> filters)
   { id: 2, username: '<img src=x onerror=alert("EventXSS")>', passwordHash: bcrypt.hashSync('...', 10) },
-
-  // 3. Attribute Breakout (Tests if you're escaping quotes in HTML attributes)
-  // Target: <input value="{{username}}"> 
   { id: 3, username: '"><script>alert("AttributeBreak")</script>', passwordHash: bcrypt.hashSync('...', 10) },
-
-  // 4. Anchor Tag/Pseudo-protocol (Tests "href" or "src" links)
-  // Target: <a href="{{username}}">Profile</a>
   { id: 4, username: 'javascript:alert("LinkXSS")', passwordHash: bcrypt.hashSync('...', 10) },
-
-  // 5. SVG Payload (Often overlooked by sanitizers)
   { id: 5, username: '<svg onload=alert("SVG_XSS")>', passwordHash: bcrypt.hashSync('...', 10) },
-
-  // 6. Style-based Injection (Targeting CSS contexts)
   { id: 6, username: '<div style="width: expression(alert(\'IE_XSS\'));">', passwordHash: bcrypt.hashSync('...', 10) }
 ];
+
 
 
 // PostgreSQL pool (needed if you want session storage in DB)
@@ -120,10 +117,43 @@ app.post('/login', loginLimiter, async (req, res) => {
     res.cookie('accessToken', token, {
       httpOnly: true,
       secure: false, 
-      sameSite: 'strict'                          // Maybe strict
+      sameSite: 'strict'                         
     });
     res.json({ success: true, method: 'jwt' });
   }
+});
+
+app.post('/register', csrfProtection, async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).send('Missing required fields');
+  }
+
+  // Check if username already exists
+  const existingUser = users.find(u => u.username === username);
+  if (existingUser) {
+    return res.status(409).send('Username already exists');
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const newUser = {
+    id: users.length + 1,
+    username,
+    email,
+    passwordHash
+  };
+
+  users.push(newUser);
+
+  res.redirect('/');
+});
+
+app.get('/register', csrfProtection, (req, res) => {
+  res.render('register', {
+    csrfToken: req.csrfToken()
+  });
 });
 
 app.post('/logout', csrfProtection, (req, res) => {
