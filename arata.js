@@ -29,7 +29,7 @@ const csrfProtection = csrf({
 
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 1 * 60 * 1000, // 15 minutes
   max: 5,                  // 5 attempts
   standardHeaders: true,
   legacyHeaders: false,
@@ -37,12 +37,12 @@ const loginLimiter = rateLimit({
 });
 
 const users = [
-  { id: 1, username: '<script>alert("Classic XSS")</script>', passwordHash: bcrypt.hashSync('...', 10) },
-  { id: 2, username: '<img src=x onerror=alert("EventXSS")>', passwordHash: bcrypt.hashSync('...', 10) },
-  { id: 3, username: '"><script>alert("AttributeBreak")</script>', passwordHash: bcrypt.hashSync('...', 10) },
-  { id: 4, username: 'javascript:alert("LinkXSS")', passwordHash: bcrypt.hashSync('...', 10) },
-  { id: 5, username: '<svg onload=alert("SVG_XSS")>', passwordHash: bcrypt.hashSync('...', 10) },
-  { id: 6, username: '<div style="width: expression(alert(\'IE_XSS\'));">', passwordHash: bcrypt.hashSync('...', 10) }
+  { id: 1, username: '<script>alert("Classic XSS")</script>', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
+  { id: 2, username: '<img src=x onerror=alert("EventXSS")>', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
+  { id: 3, username: '"><script>alert("AttributeBreak")</script>', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
+  { id: 4, username: 'javascript:alert("LinkXSS")', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
+  { id: 5, username: '<svg onload=alert("SVG_XSS")>', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
+  { id: 6, username: '<div style="width: expression(alert(\'IE_XSS\'));">', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' }
 ];
 
 
@@ -142,10 +142,13 @@ app.post('/register', csrfProtection, async (req, res) => {
     id: users.length + 1,
     username,
     email,
-    passwordHash
+    passwordHash,
+    role: 'user'
   };
 
   users.push(newUser);
+
+  console.table(users)
 
   res.redirect('/');
 });
@@ -170,46 +173,68 @@ app.post('/logout', csrfProtection, (req, res) => {
 });
 
 
-function requireAuth(req, res, next) {
+function requireRole(allowedRoles = []) {
+  return (req, res, next) => {
+    let user;
 
-  console.log(req.cookies)
-  console.log(req.cookie)
+    // Session auth
+    if (req.session && req.session.userId) {
+      user = users.find(u => u.id === req.session.userId);
+      if (!user) return res.status(401).json({ error: 'Invalid session' });
 
-  // 1️⃣ Check session
-  if (req.session && req.session.userId) {
-    req.userId = req.session.userId;
-    req.authMethod = 'session';
-    return next();
-  }
+    // JWT auth
+    } else if (req.cookies && req.cookies.accessToken) {
+      try {
+        const payload = jwt.verify(
+          req.cookies.accessToken,
+          process.env.JWT_SECRET || 'jwtsecret'
+        );
+        user = users.find(u => u.id === payload.uid);
+        if (!user) return res.status(401).json({ error: 'Invalid token' });
+      } catch (err) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
 
-  // 2️⃣ Check JWT
-  const token = req.cookies?.accessToken;
-  if (token) {
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET || 'jwtsecret');
-      req.userId = payload.uid;
-      req.authMethod = 'jwt';
-      return next();
-    } catch (err) {
-      // Invalid or expired token → continue to fail
+    } else {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-  }
 
-  // 3️⃣ Not authenticated
-  return res.status(401).json({ error: 'Unauthorized: login required' });
+    // Check role
+    if (allowedRoles.length && !allowedRoles.includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden: insufficient role' });
+    }
+
+    // Attach user object for downstream routes
+    req.user = user;
+    next();
+  };
 }
 
 
 
-app.get('/dashboard', requireAuth, csrfProtection,  (req, res) => {
-  const user = users.find(u => u.id === req.userId);
+app.get('/dashboard', requireRole(['user', 'admin']), csrfProtection, (req, res) => {
+  // req.user is set by your requireRole middleware
   res.render('dashboard', {
-    username: user?.username || 'Unknown',
-    method: req.authMethod,
-    csrfToken: req.csrfToken() 
+    user: req.user,       // full user object with username, role, etc.
+    csrfToken: req.csrfToken()
   });
 });
 
+app.get('/admin', requireRole(['admin']), csrfProtection, (req, res) => {
+  // Only send what’s safe (e.g., no password hashes!)
+  const safeUsers = users.map(u => ({
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    role: u.role
+  }));
+
+  res.render('admin', {
+    user: req.user,       // logged-in admin
+    users: safeUsers,     // list of users for the template
+    csrfToken: req.csrfToken()
+  });
+});
 
 
 // Start server

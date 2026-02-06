@@ -5,12 +5,12 @@
   <title>Dashboard</title>
 </head>
 <body>
-  <h1>Welcome, <%= username %>!</h1>
-  <p>Logged in using <%= method %>.</p>
+  <h1>Welcome, <%= user.username %>!</h1>
+  <p>Your role: <strong><%= user.role %></strong></p>
 
   <form action="/logout" method="POST">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <button type="submit">Logout</button>
+    <button type="submit" id="logoutBtn">Logout</button>
   </form>
 
 </body>
