@@ -13,7 +13,8 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 3000;
-
+const userRG = /^[a-zA-Z0-9._%+-]+$/
+const emailRG = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$/
 
 const csrfProtection = csrf({
   cookie: {
@@ -39,7 +40,6 @@ const users = [
   { id: 5, username: '<svg onload=alert("SVG_XSS")>', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' },
   { id: 6, username: '<div style="width: expression(alert(\'IE_XSS\'));">', passwordHash: bcrypt.hashSync('...', 10), role: 'admin' }
 ];
-
 
 
 // PostgreSQL pool (needed if you want session storage in DB)
@@ -87,6 +87,15 @@ app.get('/', (req, res) => {
   res.render('login');
 });
 
+function validateInput(req, res, next) {
+  let {username, email} = req.body
+  if (!userRG.test(username) || !emailRG.test(email)){
+    return res.json({error: "Invalid input"})
+  }
+
+  next()
+}
+
 app.post('/login', loginLimiter, async (req, res) => {
   const { username, password, mode } = req.body;
   console.log(username)
@@ -120,7 +129,7 @@ app.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-app.post('/register', csrfProtection, async (req, res) => {
+app.post('/register', csrfProtection, validateInput, async (req, res) => {
   const { username, email, password } = req.body;
 
   if (!username || !password) {
